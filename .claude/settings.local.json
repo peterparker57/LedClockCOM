@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(powershell -ExecutionPolicy Bypass -Command \"& \\([Environment]::GetFolderPath\\(''ApplicationData''\\) + ''\\\\ClarionCOM\\\\scripts\\\\clarioncom-env.ps1''\\) home\")",
+      "Bash(powershell -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\John Hickey\\\\AppData\\\\Roaming\\\\ClarionCOM\\\\scripts\\\\clarioncom-env.ps1\" clarion)",
+      "Bash(powershell -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\John Hickey\\\\AppData\\\\Roaming\\\\ClarionCOM\\\\scripts\\\\increment-build-version.ps1\":*)",
+      "Bash(powershell -ExecutionPolicy Bypass -File:*)",
+      "Skill(clarioncom-build)",
+      "Bash(powershell -Command \"Get-Content ''H:\\\\DevLaptop\\\\LedClockCOM\\\\LedClockCOM.manifest'' | Select-String -Pattern ''<clrClass''\")",
+      "Bash(powershell -Command:*)",
+      "Bash(\"C:\\\\Program Files\\\\Microsoft Visual Studio\\\\2022\\\\Community\\\\MSBuild\\\\Current\\\\Bin\\\\MSBuild.exe\" \"H:\\\\DevLaptop\\\\LedClockCOM\\\\LedClockCOM.csproj\" -restore -p:Configuration=Release)",
+      "Bash(powershell -ExecutionPolicy Bypass -Command \"& ''C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe'' repo view peterparker57/LedClockCOM --json visibility\")",
+      "Bash(powershell -ExecutionPolicy Bypass -Command \"& ''C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe'' repo create peterparker57/LedClockCOM --public --description ''LED Clock Control - A simple digital clock with LED-style display for Clarion applications''\")",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git config:*)"
+    ]
+  }
+}

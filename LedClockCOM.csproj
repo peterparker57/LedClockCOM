@@ -1,0 +1,125 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- ClarionCOMHome: Path to global ClarionCOM installation. Falls back to %APPDATA%\ClarionCOM -->
+    <ClarionCOMHome Condition="'$(ClarionCOMHome)' == ''">$(APPDATA)\ClarionCOM</ClarionCOMHome>
+
+    <!-- Target Framework - must be .NET Framework 4.7.2 for COM support -->
+    <TargetFramework>net472</TargetFramework>
+
+    <!-- Enable Windows Forms (required for UserControl-based controls) -->
+    <UseWindowsForms>true</UseWindowsForms>
+
+    <!-- CRITICAL: Must be x86 for 32-bit Clarion -->
+    <PlatformTarget>x86</PlatformTarget>
+
+    <!-- Output as a library (DLL) -->
+    <OutputType>Library</OutputType>
+
+    <!-- Runtime identifier for 32-bit Windows -->
+    <RuntimeIdentifier>win-x86</RuntimeIdentifier>
+
+    <!-- COM configuration for RegFree COM -->
+    <!-- NOTE: We do NOT use EnableComInterop because it generates unwanted .tlb files -->
+    <!-- We use the .manifest file for COM registration instead -->
+
+    <!-- Make assembly COM-visible -->
+    <ComVisible>true</ComVisible>
+
+    <!-- Use manual AssemblyInfo.cs -->
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+
+    <!-- Assembly name -->
+    <AssemblyName>LedClockCOM</AssemblyName>
+    <RootNamespace>LedClockCOM</RootNamespace>
+  </PropertyGroup>
+
+  <!-- CRITICAL: Exclude Template folder from compilation -->
+  <!-- This prevents duplicate assembly attributes when COMTemplate is copied to a project -->
+  <ItemGroup>
+    <Compile Remove="Template\**\*" />
+    <None Remove="Template\**\*" />
+    <Content Remove="Template\**\*" />
+    <EmbeddedResource Remove="Template\**\*" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <!-- Deploy path is Clarion folder at project level -->
+    <ClarionDeployPath>$(ProjectDir)Clarion\</ClarionDeployPath>
+  </PropertyGroup>
+
+  <!-- Deploy DLLs to Clarion folder (includes all dependencies) -->
+  <Target Name="DeployClarionFiles" AfterTargets="Build">
+    <ItemGroup>
+      <ClarionFiles Include="$(OutputPath)*.dll" />
+      <ClarionFiles Include="$(OutputPath)$(AssemblyName).manifest" Condition="Exists('$(OutputPath)$(AssemblyName).manifest')" />
+    </ItemGroup>
+
+    <MakeDir Directories="$(ClarionDeployPath)" Condition="!Exists('$(ClarionDeployPath)')" />
+
+    <Copy SourceFiles="@(ClarionFiles)"
+          DestinationFolder="$(ClarionDeployPath)"
+          SkipUnchangedFiles="true" />
+
+    <Message Text="Deployed COM control files to $(ClarionDeployPath)" Importance="high" />
+  </Target>
+
+  <!-- Generate Clarion metadata files (.header, .details, .events, .methods) using ProgID-based naming -->
+  <Target Name="GenerateClarionMetadata" AfterTargets="DeployClarionFiles">
+    <PropertyGroup>
+      <!-- Scripts are in ClarionCOMHome\scripts folder -->
+      <MetadataScriptPath>$(ClarionCOMHome)\scripts\GenerateClarionMetadata.ps1</MetadataScriptPath>
+      <MetadataProjectDir>$(ProjectDir.TrimEnd('\'))</MetadataProjectDir>
+      <MetadataDeployPath>$(ClarionDeployPath.TrimEnd('\'))</MetadataDeployPath>
+    </PropertyGroup>
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -Command &quot;&amp; { &amp; '$(MetadataScriptPath)' -ProjectDir '$(MetadataProjectDir)' -AssemblyName '$(AssemblyName)' -ClarionDeployPath '$(MetadataDeployPath)' }&quot;" />
+    <Message Text="Generated Clarion metadata files (.header, .details, .events, .methods) with ProgID-based naming" Importance="high" />
+  </Target>
+
+  <!-- Generate COM manifest file for RegFree COM -->
+  <Target Name="GenerateManifestFile" AfterTargets="GenerateClarionMetadata">
+    <PropertyGroup>
+      <!-- Manifest template is in project folder -->
+      <ManifestSource>$(ProjectDir)LedClock.manifest</ManifestSource>
+      <ManifestDest>$(ClarionDeployPath)$(AssemblyName).manifest</ManifestDest>
+    </PropertyGroup>
+
+    <!-- Copy and update the manifest file -->
+    <Copy SourceFiles="$(ManifestSource)" DestinationFiles="$(ManifestDest)" SkipUnchangedFiles="false" />
+
+    <Message Text="Generated manifest file: $(ManifestDest)" Importance="high" />
+  </Target>
+
+  <!-- Parse COM interface files to extract properties, methods, and events -->
+  <Target Name="ParseCOMInterface" AfterTargets="GenerateManifestFile">
+    <Exec Command="powershell -ExecutionPolicy Bypass -File &quot;$(ClarionCOMHome)\scripts\ParseCOMInterface.ps1&quot; -ProjectDir &quot;$(ProjectDir)&quot;" />
+    <Message Text="Parsed COM interface files for documentation" Importance="high" />
+  </Target>
+
+  <!-- Generate README.html documentation for Clarion folder -->
+  <Target Name="GenerateReadmeHtml" AfterTargets="ParseCOMInterface">
+    <PropertyGroup>
+      <ReadmeFile>$(ClarionDeployPath)readme_$(AssemblyName).html</ReadmeFile>
+      <ParsedDataFile>$(ProjectDir)ParsedInterface.json</ParsedDataFile>
+    </PropertyGroup>
+
+    <!-- Generate README with dynamic content using PowerShell script from ClarionCOMHome\scripts -->
+    <Exec Command="powershell -ExecutionPolicy Bypass -File &quot;$(ClarionCOMHome)\scripts\GenerateReadmeHTML.ps1&quot; -ParsedDataFile &quot;$(ParsedDataFile)&quot; -OutputFile &quot;$(ReadmeFile)&quot; -AssemblyName &quot;$(AssemblyName)&quot;" />
+
+    <Message Text="Generated README.html with dynamic content: $(ReadmeFile)" Importance="high" />
+  </Target>
+
+  <!-- AUTO-DEPLOY: Copy all files to Clarion installation (if configured) -->
+  <Target Name="DeployToClarionInstallation" AfterTargets="GenerateReadmeHtml">
+    <PropertyGroup>
+      <CopyScript>$(ClarionCOMHome)\scripts\copy-to-clarion.ps1</CopyScript>
+      <ClarionEnvScript>$(ClarionCOMHome)\scripts\clarion-env.ps1</ClarionEnvScript>
+    </PropertyGroup>
+
+    <!-- This target automatically copies all files from Project\Clarion to the Clarion installation -->
+    <!-- It reads CLARION_PATH from ~/.clarion.env and copies DLLs to bin, others to resources -->
+    <Exec Command="powershell -ExecutionPolicy Bypass -Command &quot;$clarionPath = &amp; '$(ClarionEnvScript)' read; if ($clarionPath -and $clarionPath -ne 'NOT_CONFIGURED') { &amp; '$(CopyScript)' -ProjectFolder '$(ClarionDeployPath.TrimEnd('\'))' -ClarionPath $clarionPath -Target 'accessory' } else { Write-Host 'Clarion path not configured - skipping auto-deploy. Run /ClarionCOM to configure.' -ForegroundColor Yellow }&quot;"
+          IgnoreExitCode="true" />
+  </Target>
+
+</Project>

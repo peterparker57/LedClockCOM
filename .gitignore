@@ -1,0 +1,19 @@
+# Build outputs
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# NuGet
+packages/
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Parsed interface data (regenerated on build)
+ParsedInterface.json
