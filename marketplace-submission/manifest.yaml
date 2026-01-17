@@ -12,7 +12,7 @@ repository:
   branch: "main"
 
 author:
-  name: "Peter Parker"
+  name: "John Hickey"
   github: "peterparker57"
 
 compatibility:
